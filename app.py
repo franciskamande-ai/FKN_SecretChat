@@ -166,18 +166,39 @@ if st.button("Send"):
 
     with open(CHAT_FILE, "a", encoding="utf-8") as f:
         f.write(entry)
+    
+    # Force real-time update
+    st.session_state["last_update"] = datetime.now()
+    st.rerun()
+
+# Auto-refresh every 2 seconds
+if "last_update" not in st.session_state:
+    st.session_state["last_update"] = datetime.now()
+
+if (datetime.now() - st.session_state["last_update"]).seconds > 2:
+    st.session_state["last_update"] = datetime.now()
+    st.rerun()
 
 # Read and show chat
 st.markdown("<div class='chat-box'>", unsafe_allow_html=True)
 with open(CHAT_FILE, "r", encoding="utf-8") as f:
     for line in f.readlines():
         if not line.strip():
-            continue
+            continue  # Skip empty lines
+
         parts = line.strip().split("|")
         text_part = parts[0]
-        media_part = parts[1] if len(parts) > 1 else None
-        name = text_part.split("] ")[1].split(":")[0]
-        content = text_part.split(": ", 1)[1]
+
+        # Skip lines that don't match the expected format
+        if ": " not in text_part:
+            continue
+
+        try:
+            name = text_part.split("] ")[1].split(":")[0]
+            content = text_part.split(": ", 1)[1]
+        except IndexError:
+            continue  # Skip corrupted lines
+
         bubble_class = "me" if name == username else "you"
 
         st.markdown(
@@ -185,7 +206,8 @@ with open(CHAT_FILE, "r", encoding="utf-8") as f:
             unsafe_allow_html=True
         )
 
-        if media_part:
+        if len(parts) > 1:
+            media_part = parts[1]
             media_path = MEDIA_DIR / media_part
             ext = media_part.split(".")[-1].lower()
             if media_path.exists():
